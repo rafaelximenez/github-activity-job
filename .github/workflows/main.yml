@@ -1,0 +1,62 @@
+name: Deploy to Cloud Run Job
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  PROJECT_ID: rxmz-tech
+  FUNCTION_NAME: github-activity-job
+  REGION: us-central1
+  SERVICE_ACCOUNT_EMAIL: 	github@rxmz-tech.iam.gserviceaccount.com
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - id: 'auth'
+      name: 'Authenticate to Google Cloud'
+      uses: 'google-github-actions/auth@v2'
+      with:
+
+        workload_identity_provider: 'projects/87769041781/locations/global/workloadIdentityPools/ga-pool-github-activity-job/providers/ga-pool-github-activity-job'
+        service_account: ${{ env.SERVICE_ACCOUNT_EMAIL }}
+
+    - name: Set up Cloud SDK
+      uses: 'google-github-actions/setup-gcloud@v2'
+      with:
+        project_id: ${{ env.PROJECT_ID }}
+
+    - name: Get Jira management secret from Secret Manager
+      id: get-secret
+      run: |
+        JIRA_MANAGEMENT_SECRET=$(gcloud secrets versions access latest --secret="jira-management" --project=${{ env.PROJECT_ID }})
+
+        echo "$JIRA_MANAGEMENT_SECRET" > .env
+
+    - name: Print .env contents
+      run: |
+        echo "Printing .env contents:"
+        cat .env
+
+    - name: Deploy to Cloud Functions
+      run: |
+        gcloud functions deploy ${{ env.FUNCTION_NAME }} \
+          --gen2 \
+          --runtime=python39 \
+          --region=${{ env.REGION }} \
+          --source=. \
+          --entry-point=salvar_e_enviar \
+          --trigger-http \
+          --allow-unauthenticated \
+          --service-account=${{ env.SERVICE_ACCOUNT_EMAIL }} \
+          --project=${{ env.PROJECT_ID }}
