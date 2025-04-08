@@ -28,7 +28,7 @@ jobs:
       uses: 'google-github-actions/auth@v2'
       with:
 
-        workload_identity_provider: 'projects/87769041781/locations/global/workloadIdentityPools/ga-pool-github-activity-job/providers/ga-pool-github-activity-job'
+        workload_identity_provider: 'projects/473421470740/locations/global/workloadIdentityPools/github-activity-job/providers/github-activity-job'
         service_account: ${{ env.SERVICE_ACCOUNT_EMAIL }}
 
     - name: Set up Cloud SDK
@@ -36,27 +36,25 @@ jobs:
       with:
         project_id: ${{ env.PROJECT_ID }}
 
-    - name: Get Jira management secret from Secret Manager
+    - name: Get secrets from Secret Manager
       id: get-secret
       run: |
-        JIRA_MANAGEMENT_SECRET=$(gcloud secrets versions access latest --secret="jira-management" --project=${{ env.PROJECT_ID }})
+        MANAGEMENT_SECRET=$(gcloud secrets versions access latest --secret="github-notifications" --project=${{ env.PROJECT_ID }})
 
-        echo "$JIRA_MANAGEMENT_SECRET" > .env
+        echo "$MANAGEMENT_SECRET" > .env
 
     - name: Print .env contents
       run: |
         echo "Printing .env contents:"
         cat .env
 
-    - name: Deploy to Cloud Functions
+    - name: Deploy to Cloud Run
       run: |
-        gcloud functions deploy ${{ env.FUNCTION_NAME }} \
-          --gen2 \
-          --runtime=python39 \
-          --region=${{ env.REGION }} \
-          --source=. \
-          --entry-point=salvar_e_enviar \
-          --trigger-http \
-          --allow-unauthenticated \
-          --service-account=${{ env.SERVICE_ACCOUNT_EMAIL }} \
-          --project=${{ env.PROJECT_ID }}
+        gcloud run jobs deploy ${{ env.FUNCTION_NAME }} \
+            --region=${{ env.REGION }} \
+            --image=gcr.io/${{ env.PROJECT_ID }}/${{ env.FUNCTION_NAME }}:latest \
+            --task-timeout=300s \ #
+            --cpu=1 \
+            --memory=1Gi \
+            --max-retries=1 \
+            --project=${{ env.PROJECT_ID }}
