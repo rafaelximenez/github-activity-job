@@ -11,7 +11,7 @@ def main():
     github_token = os.environ.get('GITHUB_TOKEN')
 
     if not github_username or not slack_webhook or not github_token:
-        print('Erro: Configure GITHUB_USERNAME, SLACK_WEBHOOK e GITHUB_TOKEN nas variáveis de ambiente.')
+        print('Erro: Configure todas variáveis de ambiente.')
         return
 
     try:
